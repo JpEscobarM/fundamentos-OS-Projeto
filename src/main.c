@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "teste.h"
 
 #define FILE_1 DATA_DIR "/sensores_caxias.json"
 #define FILE_2 DATA_DIR "/sensores_bento.json"
