@@ -1,0 +1,6 @@
+# Ignora diretorio de build:
+
+/build/
+
+# Ignora .idea do CLion:
+.idea/
