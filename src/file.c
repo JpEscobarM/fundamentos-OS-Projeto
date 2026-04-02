@@ -3,7 +3,6 @@
 //
 #include  "file.h"
 
-
 FILE *open_file(char *FILE_PATH,char *mode, int log)
 {
     FILE *file = fopen(FILE_PATH,mode);
@@ -11,7 +10,6 @@ FILE *open_file(char *FILE_PATH,char *mode, int log)
     if (file == NULL)
     {
         printf("\nERRO: Não foi possivel abrir arquivo em: %s",FILE_PATH);
-        fclose(file);
         exit(EXIT_FAILURE);
     }
 
@@ -28,7 +26,6 @@ long tamanho_total_arquivo(FILE *file,int log)
     if (file == NULL)
     {
         printf("\nERRO: Não foi possivel checar  o tamanho do arquivo");
-        fclose(file);
         exit(EXIT_FAILURE);
     }
 
@@ -88,4 +85,34 @@ char *read_with_buffer(char *FILE_PATH,char *mode, int log)
 
 
 return buffer;
+}
+
+
+/**
+ *
+ * @param buffer
+ * @param log
+ * @return
+ */
+cJSON *cjson_transform(char *buffer, int log)
+{
+   cJSON *json = cJSON_Parse(buffer);
+
+    if (json == NULL)
+    {
+        printf("\nERRO: Erro no parse do JSON");
+        exit(EXIT_FAILURE);
+
+    }
+
+    if (log)
+    {
+
+       char *log = cJSON_Print(json);
+        printf("\n%s",log);
+        free(log);
+        printf("\nParse para JSON realizado com sucesso");
+    }
+
+return json;
 }

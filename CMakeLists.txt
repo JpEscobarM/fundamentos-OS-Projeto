@@ -8,7 +8,8 @@ find_package(Threads REQUIRED)
 
 add_executable(analise
         src/main.c
-        src/file.c)
+        src/file.c
+        src/cJSON.c)
 
 target_include_directories(analise PRIVATE include)
 
