@@ -7,7 +7,8 @@ set(CMAKE_C_STANDARD 99)
 find_package(Threads REQUIRED)
 
 add_executable(analise
-        src/main.c)
+        src/main.c
+        src/file.c)
 
 target_include_directories(analise PRIVATE include)
 
