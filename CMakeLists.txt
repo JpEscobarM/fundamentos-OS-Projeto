@@ -8,6 +8,7 @@ find_package(Threads REQUIRED)
 
 add_executable(analise
         src/main.c
+        src/logger.c
         src/file.c
         src/cJSON.c)
 
