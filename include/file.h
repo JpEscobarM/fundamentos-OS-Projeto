@@ -7,8 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "cJSON.h"
-#include <pthread.h>
-#include <semaphore.h>
+#include "city.h"
 #include <types.h>
 
 /**
@@ -61,6 +60,36 @@ char *read_with_buffer(char *FILE_PATH,char *mode, int log);
  *       cJSON_Delete() quando o objeto não for mais necessário.
  */
 cJSON *cjson_transform(char *buffer, int log);
+
+/**
+ * Percorre um array JSON principal e processa os objetos presentes no campo "data"
+ * contido dentro de um JSON interno armazenado em formato de string.
+ *
+ * O campo indicado em `field` deve conter um JSON serializado em string
+ * (exemplo: "payload" ou "brute_data"). A função realiza o parse dessa string,
+ * localiza o array "data" e percorre cada item desse array.
+ *
+ * Cada item do array "data" possui a estrutura:
+ *
+ * {
+ *     "variable": "nome_da_variavel",
+ *     "value": valor_da_variavel,
+ *     "time": "timestamp_da_medicao"
+ * }
+ *
+ * A função percorre esses objetos permitindo processar variáveis como:
+ * temperature, humidity, airpressure, batterylevel, rssi, snr, etc.
+ *
+ * O objetivo é acessar diretamente os dados necessários para cálculo
+ * de métricas (ex.: maior/menor temperatura, umidade, consumo de bateria),
+ * evitando armazenar todos os payloads ou brute_data em memória.
+ *
+ * @param json  JSON principal contendo os registros (array de objetos).
+ * @param field Nome do campo que contém o JSON interno em formato de string
+ *              (exemplo: "payload" ou "brute_data").
+ * @param log   Se diferente de 0, habilita mensagens de log para depuração.
+ */
+void *process_data_items(void *args);
 
 
 #endif //ANALISE_IOT_FILE_H

@@ -2,6 +2,7 @@
 // Created by jmartins on 31/03/2026.
 //
 #include  "file.h"
+#include <city.h>
 
 FILE *open_file(char *FILE_PATH,char *mode, int log)
 {
@@ -116,3 +117,4 @@ cJSON *cjson_transform(char *buffer, int log)
 
 return json;
 }
+

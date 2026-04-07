@@ -10,7 +10,8 @@ add_executable(analise
         src/main.c
         src/logger.c
         src/file.c
-        src/cJSON.c)
+        src/cJSON.c
+        src/city.c)
 
 target_include_directories(analise PRIVATE include)
 
