@@ -51,7 +51,11 @@ void init_city(Cidade *cidade, const char *nome)
 void init_city_thread_params(cJSON *json_file_1, cJSON *json_file_2)
 {
     int size_json_1 = cJSON_GetArraySize(json_file_1);
+    N_ELEMENTOS_FILE_1 = size_json_1;
+
+
     int size_json_2 = cJSON_GetArraySize(json_file_2);
+    N_ELEMENTOS_FILE_2 = size_json_2;
 
     // thread 0 resposavel pelo file 1
     city_process_param[0].inicio = 0;
@@ -498,21 +502,20 @@ void print_pressure_table()
 }
 
 
-void print_full_report(cJSON *json_file_1, cJSON *json_file_2)
+void print_full_report()
 {
-    int tam_file_1 = cJSON_GetArraySize(json_file_1);
-    int tam_file_2 = cJSON_GetArraySize(json_file_2);
+
     printf("\n============================================================");
     printf("\nANÁLISE DE DADOS DOS SENSORES - CityLivingLab");
     printf("\nProcessamento utilizando pthreads");
     printf("\n============================================================\n");
 
     printf("\nArquivo analisado: mqtt_senzemo_cx_bg.json");
-    printf("\nTotal de registros processados: %d",tam_file_1);
+    printf("\nTotal de registros processados: %d",N_ELEMENTOS_FILE_1);
     printf("\nPeríodo analisado: ainda nao feito\n");
 
     printf("\nArquivo analisado: senzemo_cx_bg.json");
-    printf("\nTotal de registros processados: %d",tam_file_2);
+    printf("\nTotal de registros processados: %d",N_ELEMENTOS_FILE_2);
     printf("\nPeríodo analisado: ainda nao feito\n");
 
     print_temperature_table();
@@ -619,6 +622,12 @@ void *process_data_items(void *args)
                     continue;
 
                 cJSON *variable = cJSON_GetObjectItemCaseSensitive(measurement, "variable");
+
+                //se a variavel nao for necessaria, pula a iteração
+                if (!isNecessary(variable->valuestring))
+                {
+                    continue;
+                }
                 cJSON *value    = cJSON_GetObjectItemCaseSensitive(measurement, "value");
                 cJSON *time     = cJSON_GetObjectItemCaseSensitive(measurement, "time");
 
@@ -694,4 +703,13 @@ void *process_data_items(void *args)
 
 
    pthread_exit(NULL);
+}
+
+int isNecessary(char *variable)
+{
+    if (strcmp(variable, "temperature") == 0) return 1;
+    if (strcmp(variable, "humidity") == 0) return 1;
+    if (strcmp(variable, "airpressure") == 0) return 1;
+
+    return 0;
 }

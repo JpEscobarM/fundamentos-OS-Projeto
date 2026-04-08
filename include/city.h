@@ -271,6 +271,8 @@ void print_humidity_table();
  * @param json_file_1
  * @param json_file_2
  */
-void print_full_report(cJSON *json_file_1, cJSON *json_file_2);
+void print_full_report();
+
+int isNecessary(char *variable);
 
 #endif //ANALISE_IOT_CITY_H
