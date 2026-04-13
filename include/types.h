@@ -39,6 +39,13 @@ typedef struct
     int contUmidade;
     int contPressao;
 
+    //g) Bateria
+    double bateriaInicial;          // primeiro valor de tensão registrado (timestamp mais antigo)
+    char dataBateriaInicial[64];    // data/hora da primeira medição de bateria
+    double bateriaFinal;            // último valor de tensão registrado (timestamp mais recente)
+    char dataBateriaFinal[64];      // data/hora da última medição de bateria
+    int bateriaInicialSet;          // flag: 1 se já foi atribuído o valor inicial
+
 } Cidade;
 
 typedef struct

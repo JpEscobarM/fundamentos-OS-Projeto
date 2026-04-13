@@ -46,6 +46,13 @@ void init_city(Cidade *cidade, const char *nome)
     cidade->contTemperatura = 0;
     cidade->contUmidade = 0;
     cidade->contPressao = 0;
+
+    // g) Bateria — ainda sem medicao, flag marca que nao foi inicializado
+    cidade->bateriaInicial    = 0.0;
+    cidade->bateriaFinal      = 0.0;
+    cidade->dataBateriaInicial[0] = '\0';
+    cidade->dataBateriaFinal[0]   = '\0';
+    cidade->bateriaInicialSet = 0;
 }
 
 void init_city_thread_params(cJSON *json_file_1, cJSON *json_file_2)
@@ -521,7 +528,80 @@ void print_full_report()
     print_temperature_table();
     print_humidity_table();
     print_pressure_table();
+    print_battery_table();
 }
+
+// ─── g) Bateria ──────────────────────────────────────────────────────────────
+
+void city_update_battery(int city, double value, char *valueDate)
+{
+    Cidade *c = (city == CITY_CAXIAS) ? &caxias : &bento;
+    pthread_mutex_t *lock = (city == CITY_CAXIAS) ? &lock_caxias : &lock_bento;
+
+    pthread_mutex_lock(lock);
+
+    if (!c->bateriaInicialSet)
+    {
+        // Primeira medição registrada na global
+        c->bateriaInicial = value;
+        c->bateriaFinal   = value;
+        strcpy(c->dataBateriaInicial, valueDate);
+        strcpy(c->dataBateriaFinal,   valueDate);
+        c->bateriaInicialSet = 1;
+    }
+    else
+    {
+        // strcmp em ISO 8601 funciona como comparação cronológica
+        if (strcmp(valueDate, c->dataBateriaInicial) < 0)
+        {
+            c->bateriaInicial = value;
+            strcpy(c->dataBateriaInicial, valueDate);
+        }
+        if (strcmp(valueDate, c->dataBateriaFinal) > 0)
+        {
+            c->bateriaFinal = value;
+            strcpy(c->dataBateriaFinal, valueDate);
+        }
+    }
+
+    pthread_mutex_unlock(lock);
+}
+
+void consolidate_one_city_battery(int city, Cidade *cidade)
+{
+    // Envia o valor inicial (timestamp mais antigo) e o final (mais recente)
+    // para city_update_battery, que decide qual é realmente o extremo global
+    city_update_battery(city, cidade->bateriaInicial, cidade->dataBateriaInicial);
+    city_update_battery(city, cidade->bateriaFinal,   cidade->dataBateriaFinal);
+}
+
+void print_battery_table()
+{
+    printf("\n------------------------------------------------------------");
+    printf("\nBATERIA");
+    printf("\n------------------------------------------------------------");
+
+    printf("\n%-18s | %-11s | %-9s | %-11s",
+           "Cidade", "Inicial (V)", "Final (V)", "Consumo (V)");
+
+    printf("\n------------------------------------------------------------\n");
+
+    double consumo_cx = caxias.bateriaInicial - caxias.bateriaFinal;
+    printf("%-18s | %11.2f | %9.2f | %11.2f\n",
+           caxias.nomeCidade,
+           caxias.bateriaInicial,
+           caxias.bateriaFinal,
+           consumo_cx);
+
+    double consumo_bg = bento.bateriaInicial - bento.bateriaFinal;
+    printf("%-19s | %11.2f | %9.2f | %11.2f\n",
+           bento.nomeCidade,
+           bento.bateriaInicial,
+           bento.bateriaFinal,
+           consumo_bg);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 void consolidate_one_city_results(int city, Cidade *cidade)
 {
@@ -537,6 +617,12 @@ void consolidate_one_city_results(int city, Cidade *cidade)
     city_add_temperature_stats(city, cidade->somaTemperatura, cidade->contTemperatura);
     city_add_humidity_stats(city, cidade->somaUmidade, cidade->contUmidade);
     city_add_atmospheric_pressure_stats(city, cidade->somaPressao, cidade->contPressao);
+
+    // g) Consolida bateria apenas se a thread encontrou alguma medição
+    if (cidade->bateriaInicialSet)
+    {
+        consolidate_one_city_battery(city, cidade);
+    }
 }
 
 void consolidate_city_results(Cidade aux[2])
@@ -692,6 +778,35 @@ void *process_data_items(void *args)
                     aux[cidadeAtual].somaPressao += valor;
                     aux[cidadeAtual].contPressao++;
                 }
+                // g) Bateria: guarda o primeiro e o último valor por timestamp ISO
+                else if (strcmp(variable->valuestring, "batterylevel") == 0)
+                {
+                    char *t = time->valuestring;
+
+                    // Primeiro registro de bateria desta thread para esta cidade
+                    if (!aux[cidadeAtual].bateriaInicialSet)
+                    {
+                        aux[cidadeAtual].bateriaInicial  = valor;
+                        aux[cidadeAtual].bateriaFinal    = valor;
+                        strcpy(aux[cidadeAtual].dataBateriaInicial, t);
+                        strcpy(aux[cidadeAtual].dataBateriaFinal,   t);
+                        aux[cidadeAtual].bateriaInicialSet = 1;
+                    }
+                    else
+                    {
+                        // strcmp em datas ISO 8601 funciona lexicograficamente
+                        if (strcmp(t, aux[cidadeAtual].dataBateriaInicial) < 0)
+                        {
+                            aux[cidadeAtual].bateriaInicial = valor;
+                            strcpy(aux[cidadeAtual].dataBateriaInicial, t);
+                        }
+                        if (strcmp(t, aux[cidadeAtual].dataBateriaFinal) > 0)
+                        {
+                            aux[cidadeAtual].bateriaFinal = valor;
+                            strcpy(aux[cidadeAtual].dataBateriaFinal, t);
+                        }
+                    }
+                }
             }
         }
 
@@ -710,6 +825,7 @@ int isNecessary(char *variable)
     if (strcmp(variable, "temperature") == 0) return 1;
     if (strcmp(variable, "humidity") == 0) return 1;
     if (strcmp(variable, "airpressure") == 0) return 1;
+    if (strcmp(variable, "batterylevel") == 0) return 1;
 
     return 0;
 }

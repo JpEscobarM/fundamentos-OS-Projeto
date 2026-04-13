@@ -276,3 +276,33 @@ void print_full_report();
 int isNecessary(char *variable);
 
 #endif //ANALISE_IOT_CITY_H
+/**
+ * Atualiza os dados de bateria de uma cidade com base no timestamp da medicao.
+ *
+ * Compara a data ISO recebida com as datas ja armazenadas na estrutura global:
+ *  - Se for ANTERIOR a data inicial (ou a primeira medicao), atualiza bateriaInicial.
+ *  - Se for POSTERIOR a data final, atualiza bateriaFinal.
+ *
+ * Regiao critica protegida por mutex.
+ *
+ * @param city      identificador da cidade (CITY_CAXIAS ou CITY_BENTO)
+ * @param value     tensao de bateria em Volts
+ * @param valueDate data ISO 8601 da medicao (ex: "2025-01-15T10:30:00.000Z")
+ */
+void city_update_battery(int city, double value, char *valueDate);
+
+/**
+ * Consolida os dados de bateria da estrutura auxiliar local da thread
+ * nas variaveis globais de cada cidade, usando city_update_battery.
+ *
+ * @param city   identificador da cidade
+ * @param cidade ponteiro para a estrutura auxiliar local da thread
+ */
+void consolidate_one_city_battery(int city, Cidade *cidade);
+
+/**
+ * Imprime a tabela de consumo de bateria no formato do template do trabalho:
+ *
+ * Cidade | Inicial (V) | Final (V) | Consumo (V)
+ */
+void print_battery_table();
