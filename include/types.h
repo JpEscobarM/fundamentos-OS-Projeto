@@ -46,12 +46,16 @@ typedef struct
     char dataBateriaFinal[64];      // data/hora da última medição de bateria
     int bateriaInicialSet;          // flag: 1 se já foi atribuído o valor inicial
 
+    int spreadingFactors[16];
+    int qtdSpreadingFactors;
+
 } Cidade;
 
 typedef struct
 {
     int inicio;
     int fim;
+    int file_index;
     char field[24];
     cJSON *json; // precisa de um ponteiro para o json que irá percorrer
 

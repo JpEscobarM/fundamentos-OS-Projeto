@@ -271,9 +271,15 @@ void print_humidity_table();
  * @param json_file_1
  * @param json_file_2
  */
-void print_full_report();
+void print_full_report(double tempo_execucao);
 
 int isNecessary(char *variable);
+
+void city_add_spreading_factor(int city, int sf);
+void consolidate_one_city_spreading_factors(int city, Cidade *cidade);
+void print_spreading_factor_table();
+void update_file_period(int file_index, char *valueDate);
+void print_performance_table(double tempo_execucao);
 
 #endif //ANALISE_IOT_CITY_H
 /**

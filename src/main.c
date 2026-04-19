@@ -28,17 +28,15 @@ int main() {
 
     start_city_processig(json_mqtt_senzemo_cx_bg , json_senzemo_cx_bg);
 
-    print_full_report();
-
-
-    registrar_log("Parando o sistema");
-    fechar_logger();
-
     clock_t end = clock();
 
     double tempo = (double)(end - start) / CLOCKS_PER_SEC;
 
-    printf("\nTempo total de execução: %.3f segundos\n", tempo);
+    print_full_report(tempo);
+
+
+    registrar_log("Parando o sistema");
+    fechar_logger();
 
     return 0;
 }

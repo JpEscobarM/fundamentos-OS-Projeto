@@ -17,6 +17,14 @@ static  pthread_t processing_threads[N_THREADS];
 
 static  City_param_t city_process_param[N_THREADS];
 
+static pthread_mutex_t lock_file_stats[2] = {
+    PTHREAD_MUTEX_INITIALIZER,
+    PTHREAD_MUTEX_INITIALIZER
+};
+
+static char file_period_start[2][64];
+static char file_period_end[2][64];
+
 void init_city(Cidade *cidade, const char *nome)
 {
     strcpy(cidade->nomeCidade, nome);
@@ -53,6 +61,12 @@ void init_city(Cidade *cidade, const char *nome)
     cidade->dataBateriaInicial[0] = '\0';
     cidade->dataBateriaFinal[0]   = '\0';
     cidade->bateriaInicialSet = 0;
+
+    for (int i = 0; i < 16; i++)
+    {
+        cidade->spreadingFactors[i] = 0;
+    }
+    cidade->qtdSpreadingFactors = 0;
 }
 
 void init_city_thread_params(cJSON *json_file_1, cJSON *json_file_2)
@@ -64,9 +78,16 @@ void init_city_thread_params(cJSON *json_file_1, cJSON *json_file_2)
     int size_json_2 = cJSON_GetArraySize(json_file_2);
     N_ELEMENTOS_FILE_2 = size_json_2;
 
+    for (int i = 0; i < 2; i++)
+    {
+        file_period_start[i][0] = '\0';
+        file_period_end[i][0] = '\0';
+    }
+
     // thread 0 resposavel pelo file 1
     city_process_param[0].inicio = 0;
     city_process_param[0].fim = size_json_1;
+    city_process_param[0].file_index = 0;
     city_process_param[0].json = json_file_1;
     strcpy(city_process_param[0].field,"payload");
 
@@ -87,6 +108,7 @@ void init_city_thread_params(cJSON *json_file_1, cJSON *json_file_2)
             city_process_param[i].fim = (idx + 1) * bloco;
         }
 
+        city_process_param[i].file_index = 1;
         city_process_param[i].json = json_file_2;
         strcpy(city_process_param[i].field,"brute_data");
     }
@@ -509,8 +531,15 @@ void print_pressure_table()
 }
 
 
-void print_full_report()
+void print_full_report(double tempo_execucao)
 {
+    char periodo_inicio[2][64] = {{0}};
+    char periodo_fim[2][64] = {{0}};
+
+    if (file_period_start[0][0] != '\0') format_date(file_period_start[0], periodo_inicio[0]);
+    if (file_period_end[0][0] != '\0') format_date(file_period_end[0], periodo_fim[0]);
+    if (file_period_start[1][0] != '\0') format_date(file_period_start[1], periodo_inicio[1]);
+    if (file_period_end[1][0] != '\0') format_date(file_period_end[1], periodo_fim[1]);
 
     printf("\n============================================================");
     printf("\nANÁLISE DE DADOS DOS SENSORES - CityLivingLab");
@@ -518,17 +547,23 @@ void print_full_report()
     printf("\n============================================================\n");
 
     printf("\nArquivo analisado: mqtt_senzemo_cx_bg.json");
-    printf("\nTotal de registros processados: %d",N_ELEMENTOS_FILE_1);
-    printf("\nPeríodo analisado: ainda nao feito\n");
+    printf("\nTotal de registros processados: %d", N_ELEMENTOS_FILE_1);
+    printf("\nPeriodo analisado: %s a %s\n",
+           periodo_inicio[0][0] ? periodo_inicio[0] : "Sem dados",
+           periodo_fim[0][0] ? periodo_fim[0] : "Sem dados");
 
     printf("\nArquivo analisado: senzemo_cx_bg.json");
-    printf("\nTotal de registros processados: %d",N_ELEMENTOS_FILE_2);
-    printf("\nPeríodo analisado: ainda nao feito\n");
+    printf("\nTotal de registros processados: %d", N_ELEMENTOS_FILE_2);
+    printf("\nPeriodo analisado: %s a %s\n",
+           periodo_inicio[1][0] ? periodo_inicio[1] : "Sem dados",
+           periodo_fim[1][0] ? periodo_fim[1] : "Sem dados");
 
     print_temperature_table();
     print_humidity_table();
     print_pressure_table();
     print_battery_table();
+    print_spreading_factor_table();
+    print_performance_table(tempo_execucao);
 }
 
 // ─── g) Bateria ──────────────────────────────────────────────────────────────
@@ -603,6 +638,134 @@ void print_battery_table()
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+void update_file_period(int file_index, char *valueDate)
+{
+    if (file_index < 0 || file_index > 1 || valueDate == NULL || valueDate[0] == '\0')
+    {
+        return;
+    }
+
+    pthread_mutex_lock(&lock_file_stats[file_index]);
+
+    if (file_period_start[file_index][0] == '\0' || strcmp(valueDate, file_period_start[file_index]) < 0)
+    {
+        strcpy(file_period_start[file_index], valueDate);
+    }
+
+    if (file_period_end[file_index][0] == '\0' || strcmp(valueDate, file_period_end[file_index]) > 0)
+    {
+        strcpy(file_period_end[file_index], valueDate);
+    }
+
+    pthread_mutex_unlock(&lock_file_stats[file_index]);
+}
+
+void city_add_spreading_factor(int city, int sf)
+{
+    Cidade *c = (city == CITY_CAXIAS) ? &caxias : &bento;
+    pthread_mutex_t *lock = (city == CITY_CAXIAS) ? &lock_caxias : &lock_bento;
+
+    pthread_mutex_lock(lock);
+
+    // Mantem apenas valores distintos de SF por cidade.
+    for (int i = 0; i < c->qtdSpreadingFactors; i++)
+    {
+        if (c->spreadingFactors[i] == sf)
+        {
+            pthread_mutex_unlock(lock);
+            return;
+        }
+    }
+
+    if (c->qtdSpreadingFactors < 16)
+    {
+        c->spreadingFactors[c->qtdSpreadingFactors] = sf;
+        c->qtdSpreadingFactors++;
+    }
+
+    pthread_mutex_unlock(lock);
+}
+
+void consolidate_one_city_spreading_factors(int city, Cidade *cidade)
+{
+    for (int i = 0; i < cidade->qtdSpreadingFactors; i++)
+    {
+        city_add_spreading_factor(city, cidade->spreadingFactors[i]);
+    }
+}
+
+static void print_city_sfs(Cidade *cidade)
+{
+    int sorted[16];
+
+    printf("%-19s | ", cidade->nomeCidade);
+
+    if (cidade->qtdSpreadingFactors == 0)
+    {
+        printf("Sem dados\n");
+        return;
+    }
+
+    for (int i = 0; i < cidade->qtdSpreadingFactors; i++)
+    {
+        sorted[i] = cidade->spreadingFactors[i];
+    }
+
+    // Ordena para deixar a saida estavel mesmo com consolidacao paralela.
+    for (int i = 0; i < cidade->qtdSpreadingFactors - 1; i++)
+    {
+        for (int j = i + 1; j < cidade->qtdSpreadingFactors; j++)
+        {
+            if (sorted[j] < sorted[i])
+            {
+                int tmp = sorted[i];
+                sorted[i] = sorted[j];
+                sorted[j] = tmp;
+            }
+        }
+    }
+
+    for (int i = 0; i < cidade->qtdSpreadingFactors; i++)
+    {
+        printf("SF%d", sorted[i]);
+        if (i < cidade->qtdSpreadingFactors - 1)
+        {
+            printf(", ");
+        }
+    }
+
+    printf("\n");
+}
+
+void print_spreading_factor_table()
+{
+    printf("\n------------------------------------------------------------");
+    printf("\nSPREADING FACTORS UTILIZADOS");
+    printf("\n------------------------------------------------------------");
+    printf("\n%-18s | %s", "Cidade", "SF utilizados");
+    printf("\n------------------------------------------------------------\n");
+
+    print_city_sfs(&caxias);
+    print_city_sfs(&bento);
+}
+
+void print_performance_table(double tempo_execucao)
+{
+    // Secao final no formato pedido pelo template do trabalho.
+    printf("\n------------------------------------------------------------");
+    printf("\nDESEMPENHO");
+    printf("\n------------------------------------------------------------");
+    printf("\nTempo total de execucao: %.3f segundos", tempo_execucao);
+    printf("\nThreads utilizadas: %d", N_THREADS + 1);
+    printf("\n - Thread principal: leitura dos dados e parse dos JSONs");
+    printf("\n - Threads 1-%d: calculo das estatisticas", N_THREADS);
+    printf("\n - Thread de log: registro de logs");
+    printf("\n\nArquivo de log gerado: processamento.log");
+    printf("\n\n============================================================");
+    printf("\nProcessamento finalizado com sucesso.");
+    printf("\n============================================================\n");
+}
+
 void consolidate_one_city_results(int city, Cidade *cidade)
 {
     city_update_temperature(city, cidade->maiorTemperatura, cidade->dataMaiorTemperatura);
@@ -623,6 +786,8 @@ void consolidate_one_city_results(int city, Cidade *cidade)
     {
         consolidate_one_city_battery(city, cidade);
     }
+
+    consolidate_one_city_spreading_factors(city, cidade);
 }
 
 void consolidate_city_results(Cidade aux[2])
@@ -709,16 +874,16 @@ void *process_data_items(void *args)
 
                 cJSON *variable = cJSON_GetObjectItemCaseSensitive(measurement, "variable");
 
-                //se a variavel nao for necessaria, pula a iteração
-                if (!isNecessary(variable->valuestring))
-                {
-                    continue;
-                }
                 cJSON *value    = cJSON_GetObjectItemCaseSensitive(measurement, "value");
                 cJSON *time     = cJSON_GetObjectItemCaseSensitive(measurement, "time");
 
                 if (variable == NULL || !cJSON_IsString(variable) || variable->valuestring == NULL)
                     continue;
+
+                if (!isNecessary(variable->valuestring))
+                {
+                    continue;
+                }
 
                 if (value == NULL || !cJSON_IsNumber(value))
                     continue;
@@ -727,6 +892,7 @@ void *process_data_items(void *args)
                     continue;
 
                 double valor = cJSON_GetNumberValue(value);
+                update_file_period(param->file_index, time->valuestring);
 
                 //atualiza a variavel de aux de acordo com o campo lido no momento, se a variável for algo que precisamos
                 if (strcmp(variable->valuestring, "temperature") == 0)
@@ -807,6 +973,27 @@ void *process_data_items(void *args)
                         }
                     }
                 }
+                else if (strcmp(variable->valuestring, "lora_spreading_factor") == 0)
+                {
+                    // Coleta localmente os SFs distintos e consolida no fim da thread.
+                    int sf = (int)valor;
+                    int exists = 0;
+
+                    for (int k = 0; k < aux[cidadeAtual].qtdSpreadingFactors; k++)
+                    {
+                        if (aux[cidadeAtual].spreadingFactors[k] == sf)
+                        {
+                            exists = 1;
+                            break;
+                        }
+                    }
+
+                    if (!exists && aux[cidadeAtual].qtdSpreadingFactors < 16)
+                    {
+                        aux[cidadeAtual].spreadingFactors[aux[cidadeAtual].qtdSpreadingFactors] = sf;
+                        aux[cidadeAtual].qtdSpreadingFactors++;
+                    }
+                }
             }
         }
 
@@ -826,6 +1013,7 @@ int isNecessary(char *variable)
     if (strcmp(variable, "humidity") == 0) return 1;
     if (strcmp(variable, "airpressure") == 0) return 1;
     if (strcmp(variable, "batterylevel") == 0) return 1;
+    if (strcmp(variable, "lora_spreading_factor") == 0) return 1;
 
     return 0;
 }
