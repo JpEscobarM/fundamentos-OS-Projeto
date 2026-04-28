@@ -1,6 +1,13 @@
 # fundamentos-OS-Projeto
 
-Trabalho de análise de dados de sensoriamento utilizando **pthreads**.
+Projeto de análise de dados de sensoriamento utilizando **pthreads** para processamento paralelo em C.
+
+
+## Autores
+
+- [Henrique Cansi](https://github.com/HenriqueCansi)
+- [Lucas Schiochet](https://github.com/LucasSchiochet2)
+- [João Martins](https://github.com/JpEscobarM)
 
 ------------------------------------------------------------------------
 
@@ -35,7 +42,7 @@ make
 
 ------------------------------------------------------------------------
 
-## Estrutura esperada do projeto
+## Estrutura do projeto
 
 ``` text
 fundamentos-OS-Projeto/
