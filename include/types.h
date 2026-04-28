@@ -53,11 +53,15 @@ typedef struct
 
 typedef struct
 {
+    int id;
     int inicio;
     int fim;
     int file_index;
     char field[24];
+    char nome_arquivo[256];
     cJSON *json; // precisa de um ponteiro para o json que irá percorrer
+
+
 
 }City_param_t;
 

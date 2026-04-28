@@ -12,4 +12,7 @@ void registrar_log(const char *formato, ...);
 // Encerra a thread de log, garantindo que todas as mensagens sejam gravadas
 void fechar_logger();
 
+
+void get_timestamp(char *buffer, size_t size);
+
 #endif // LOGGER_H

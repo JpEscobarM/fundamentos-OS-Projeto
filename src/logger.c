@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <time.h>
 
 #define MAX_MENSAGENS_LOG 1024
 #define TAMANHO_MENSAGEM_LOG 256
@@ -65,21 +66,36 @@ void inicializar_logger() {
 
 void registrar_log(const char *formato, ...) {
     char mensagem_temp[TAMANHO_MENSAGEM_LOG];
+    char mensagem_final[TAMANHO_MENSAGEM_LOG];
+    char timestamp[32];
+
+    // timestamp
+    get_timestamp(timestamp, sizeof(timestamp));
+
+    // formatação original
     va_list args;
     va_start(args, formato);
     vsnprintf(mensagem_temp, TAMANHO_MENSAGEM_LOG, formato, args);
     va_end(args);
 
+    // monta mensagem final com timestamp
+    snprintf(mensagem_final, TAMANHO_MENSAGEM_LOG,
+             "[%s] %s", timestamp, mensagem_temp);
+
     pthread_mutex_lock(&mutex_logger);
+
     if (total_fila < MAX_MENSAGENS_LOG) {
-        strncpy(fila_log[inicio_fila], mensagem_temp, TAMANHO_MENSAGEM_LOG);
+        strncpy(fila_log[inicio_fila], mensagem_final, TAMANHO_MENSAGEM_LOG - 1);
+        fila_log[inicio_fila][TAMANHO_MENSAGEM_LOG - 1] = '\0';
+
         inicio_fila = (inicio_fila + 1) % MAX_MENSAGENS_LOG;
         total_fila++;
+
         pthread_cond_signal(&cond_logger);
     } else {
-        // Fila cheia: opção de descartar ou bloquear (aqui descarta e imprime alerta)
-        fprintf(stderr, "Aviso: Fila de logs cheia. Mensagem ignorada: %s\n", mensagem_temp);
+        fprintf(stderr, "Fila cheia: %s\n", mensagem_final);
     }
+
     pthread_mutex_unlock(&mutex_logger);
 }
 
@@ -90,4 +106,14 @@ void fechar_logger() {
     pthread_mutex_unlock(&mutex_logger);
 
     pthread_join(thread_logger, NULL);
+}
+
+void get_timestamp(char *buffer, size_t size) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+
+    struct tm tm_info;
+    localtime_r(&ts.tv_sec, &tm_info);
+
+    strftime(buffer, size, "%Y-%m-%d %H:%M:%S", &tm_info);
 }

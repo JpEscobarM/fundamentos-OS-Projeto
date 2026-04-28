@@ -3,6 +3,8 @@
 //
 
 #include "city.h"
+
+#include "logger.h"
 int N_ELEMENTOS_FILE_1;
 int N_ELEMENTOS_FILE_2;
 
@@ -85,16 +87,19 @@ void init_city_thread_params(cJSON *json_file_1, cJSON *json_file_2)
     }
 
     // thread 0 resposavel pelo file 1
+    city_process_param[0].id=0;
     city_process_param[0].inicio = 0;
     city_process_param[0].fim = size_json_1;
     city_process_param[0].file_index = 0;
     city_process_param[0].json = json_file_1;
     strcpy(city_process_param[0].field,"payload");
+    strcpy(city_process_param[0].nome_arquivo,"mqtt_senzemo_cx_bg.json");
 
     int bloco = size_json_2 / (N_THREADS - 1);
 
     for (int i = 1; i < N_THREADS; i++)
     {
+        city_process_param[i].id=i;
         int idx = i - 1; //para começar do inidice 0 no jsonfile2
 
         city_process_param[i].inicio = idx * bloco;
@@ -111,6 +116,7 @@ void init_city_thread_params(cJSON *json_file_1, cJSON *json_file_2)
         city_process_param[i].file_index = 1;
         city_process_param[i].json = json_file_2;
         strcpy(city_process_param[i].field,"brute_data");
+        strcpy(city_process_param[i].nome_arquivo,"senzemo_cx_bg.json");
     }
 }
 
@@ -808,6 +814,8 @@ void *process_data_items(void *args)
     init_city(&aux[1], "Bento Gonçalves-AUX");
 
 
+
+
     if (param == NULL || param->json == NULL)
     {
         fprintf(stderr, "\nERRO: param ou json == NULL\n");
@@ -1003,6 +1011,7 @@ void *process_data_items(void *args)
     // consolidação final da thread nas variáveis globais
     consolidate_city_results(aux);
 
+    registrar_log("THREAD %d | arquivo=%s -  inicia em %d  e termina %d - finalizada!",param->id,param->nome_arquivo,param->inicio, param->fim);
 
    pthread_exit(NULL);
 }
