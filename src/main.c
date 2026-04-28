@@ -26,6 +26,7 @@ int main() {
     cJSON *json_mqtt_senzemo_cx_bg = cjson_transform(buffer_mqtt_senzemo_cx_bg,0);
     cJSON *json_senzemo_cx_bg = cjson_transform(buffer_senzemo_cx_bg,0);
 
+
     start_city_processig(json_mqtt_senzemo_cx_bg , json_senzemo_cx_bg);
 
     clock_t end = clock();

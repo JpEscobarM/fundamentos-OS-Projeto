@@ -16,7 +16,7 @@
 #define N_THREADS 6
 #define CITY_CAXIAS 0
 #define CITY_BENTO 1
-
+#define PORCENTAGEM_LOG 25
 
 extern int N_ELEMENTOS_FILE_1; //json_mqtt_senzemo_cx_bg
 extern int N_ELEMENTOS_FILE_2;//json_senzemo_cx_bg

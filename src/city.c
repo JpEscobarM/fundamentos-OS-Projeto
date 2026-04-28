@@ -122,6 +122,8 @@ void init_city_thread_params(cJSON *json_file_1, cJSON *json_file_2)
 
 void start_city_processig(cJSON *json_file_1, cJSON *json_file_2)
 {
+    registrar_log("Iniciando processamento de arquivos.");
+
     init_city(&caxias, "Caxias do Sul");
     init_city(&bento, "Bento Gonçalves");
 
@@ -813,7 +815,20 @@ void *process_data_items(void *args)
     init_city(&aux[0], "Caxias do Sul-AUX");
     init_city(&aux[1], "Bento Gonçalves-AUX");
 
+    //LOGICA DE PORCENTAGEM
+    int total_thread = param->fim - param->inicio;
 
+        registrar_log(
+            "THREAD %d | arquivo=%-23s | progresso %5.0f%% | Registro Atual %5d | range=[%d, %d]",
+            param->id,
+            param->nome_arquivo,
+            0.0,
+            param->inicio,
+            param->inicio,
+            (param->fim-1)
+        );
+
+    int proximo_log = PORCENTAGEM_LOG;
 
 
     if (param == NULL || param->json == NULL)
@@ -830,6 +845,25 @@ void *process_data_items(void *args)
 
     for (int i = param->inicio; i < param->fim; i++)
     {
+
+        int processados = i - param->inicio + 1;
+        double progresso = (processados * 100.0) / total_thread;
+
+        if (progresso >= proximo_log)
+        {
+            registrar_log(
+                "THREAD %d | arquivo=%-23s | progresso %5.0f%% | Registro Atual %5.0d | range=[%d, %d]",
+                param->id,
+                param->nome_arquivo,
+                progresso,
+                i,
+                param->inicio,
+                (param->fim-1)
+            );
+
+            proximo_log += PORCENTAGEM_LOG;
+        }
+
         cJSON *outer_item = cJSON_GetArrayItem(param->json, i);
         if (outer_item == NULL)
             continue;
@@ -1010,8 +1044,6 @@ void *process_data_items(void *args)
 
     // consolidação final da thread nas variáveis globais
     consolidate_city_results(aux);
-
-    registrar_log("THREAD %d | arquivo=%s -  inicia em %d  e termina %d - finalizada!",param->id,param->nome_arquivo,param->inicio, param->fim);
 
    pthread_exit(NULL);
 }
