@@ -9,9 +9,15 @@
 int main() {
 
 
-    clock_t start = clock();
+    struct timespec inicio;
+    struct timespec fim;
 
-    // Inicializa a thread de log
+    if (clock_gettime(CLOCK_MONOTONIC, &inicio) != 0)
+    {
+        perror("clock_gettime inicio");
+        return 1;
+    }
+
     inicializar_logger();
 
     registrar_log("Sistema de analise iniciado");
@@ -29,11 +35,17 @@ int main() {
 
     start_city_processig(json_mqtt_senzemo_cx_bg , json_senzemo_cx_bg);
 
-    clock_t end = clock();
+  if (clock_gettime(CLOCK_MONOTONIC, &fim) != 0)
+    {
+        perror("clock_gettime fim");
+        return 1;
+    }
 
-    double tempo = (double)(end - start) / CLOCKS_PER_SEC;
+    double tempo_execucao =
+        (double)(fim.tv_sec - inicio.tv_sec) +
+        (double)(fim.tv_nsec - inicio.tv_nsec) / 1e9;
 
-    print_full_report(tempo);
+    print_full_report(tempo_execucao);
 
 
     registrar_log("Parando o sistema");

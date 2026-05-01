@@ -843,7 +843,9 @@ void *process_data_items(void *args)
         return NULL;
     }
 
-    for (int i = param->inicio; i < param->fim; i++)
+    cJSON *outer_item = cJSON_GetArrayItem(param->json, param->inicio);
+
+    for (int i = param->inicio; i < param->fim; i++,outer_item = outer_item->next)
     {
 
         int processados = i - param->inicio + 1;
@@ -863,10 +865,6 @@ void *process_data_items(void *args)
 
             proximo_log += PORCENTAGEM_LOG;
         }
-
-        cJSON *outer_item = cJSON_GetArrayItem(param->json, i);
-        if (outer_item == NULL)
-            continue;
 
         //field = "brute_data" ou "payloard", é o campo que contem as informações que precisamos
         cJSON *raw_field = cJSON_GetObjectItemCaseSensitive(outer_item, param->field);
