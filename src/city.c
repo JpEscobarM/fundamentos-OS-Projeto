@@ -804,6 +804,25 @@ void consolidate_city_results(Cidade aux[2])
     consolidate_one_city_results(CITY_BENTO, &aux[CITY_BENTO]);
 }
 
+static inline int fast_parse_iso_minutes(const char *time_str)
+{
+    if (!time_str || time_str[0] == '\0') return 0;
+    
+    int y = (time_str[0]-'0')*1000 + (time_str[1]-'0')*100 + (time_str[2]-'0')*10 + (time_str[3]-'0');
+    int M = (time_str[5]-'0')*10 + (time_str[6]-'0');
+    int d = (time_str[8]-'0')*10 + (time_str[9]-'0');
+    int h = (time_str[11]-'0')*10 + (time_str[12]-'0');
+    int m = (time_str[14]-'0')*10 + (time_str[15]-'0');
+    
+    if (M < 3) {
+        y -= 1;
+        M += 12;
+    }
+    int jdn = 365*y + y/4 - y/100 + y/400 + (153*M - 457)/5 + d - 306;
+    
+    return jdn * 1440 + h * 60 + m;
+}
+
 void *process_data_items(void *args)
 {
 
@@ -814,6 +833,14 @@ void *process_data_items(void *args)
     Cidade aux[2];
     init_city(&aux[0], "Caxias do Sul-AUX");
     init_city(&aux[1], "Bento Gonçalves-AUX");
+
+    double lastVal[2][5] = {{-9999, -9999, -9999, -9999, -9999}, {-9999, -9999, -9999, -9999, -9999}};
+    int lastTimeMin[2][5];
+    for (int c = 0; c < 2; c++) {
+        for (int v = 0; v < 5; v++) {
+            lastTimeMin[c][v] = 0;
+        }
+    }
 
     //LOGICA DE PORCENTAGEM
     int total_thread = param->fim - param->inicio;
@@ -932,6 +959,30 @@ void *process_data_items(void *args)
                     continue;
 
                 double valor = cJSON_GetNumberValue(value);
+
+                int var_type = -1;
+                char f_char = variable->valuestring[0];
+                if (f_char == 't' && strcmp(variable->valuestring, "temperature") == 0) var_type = 0;
+                else if (f_char == 'h' && strcmp(variable->valuestring, "humidity") == 0) var_type = 1;
+                else if (f_char == 'a' && strcmp(variable->valuestring, "airpressure") == 0) var_type = 2;
+                else if (f_char == 'b' && strcmp(variable->valuestring, "batterylevel") == 0) var_type = 3;
+                else if (f_char == 'l' && strcmp(variable->valuestring, "lora_spreading_factor") == 0) var_type = 4;
+                
+                int current_mins = 0;
+                if (var_type >= 0) {
+                    current_mins = fast_parse_iso_minutes(time->valuestring);
+                    
+                    
+                    if (lastTimeMin[cidadeAtual][var_type] != 0) {
+                        if (valor == lastVal[cidadeAtual][var_type] && 
+                            abs(current_mins - lastTimeMin[cidadeAtual][var_type]) < 20) {
+                            continue;
+                        }
+                    }
+                    lastVal[cidadeAtual][var_type] = valor;
+                    lastTimeMin[cidadeAtual][var_type] = current_mins;
+                }
+
                 update_file_period(param->file_index, time->valuestring);
 
                 //atualiza a variavel de aux de acordo com o campo lido no momento, se a variável for algo que precisamos
@@ -1048,11 +1099,12 @@ void *process_data_items(void *args)
 
 int isNecessary(char *variable)
 {
-    if (strcmp(variable, "temperature") == 0) return 1;
-    if (strcmp(variable, "humidity") == 0) return 1;
-    if (strcmp(variable, "airpressure") == 0) return 1;
-    if (strcmp(variable, "batterylevel") == 0) return 1;
-    if (strcmp(variable, "lora_spreading_factor") == 0) return 1;
+    char c = variable[0];
+    if (c == 't' && strcmp(variable, "temperature") == 0) return 1;
+    if (c == 'h' && strcmp(variable, "humidity") == 0) return 1;
+    if (c == 'a' && strcmp(variable, "airpressure") == 0) return 1;
+    if (c == 'b' && strcmp(variable, "batterylevel") == 0) return 1;
+    if (c == 'l' && strcmp(variable, "lora_spreading_factor") == 0) return 1;
 
     return 0;
 }
